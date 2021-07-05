@@ -2,5 +2,36 @@
   "dependencies": {
     "tgmlight": "^1.0.6",
     "toolslight": "^1.0.23"
-  }
+  },
+  "name": "loglight",
+  "description": "Quickly and easily NodeJS module for save and report any logs.",
+  "version": "1.0.0",
+  "main": "index.js",
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fosper/loglight.git"
+  },
+  "keywords": [
+    "log",
+    "logger",
+    "stacktrace",
+    "debug",
+    "handle",
+    "debugger",
+    "handler"
+  ],
+  "author": {
+    "name": "Fosper",
+    "email": "fosper@icloud.com",
+    "url": "https://www.npmjs.com/~fosper"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/fosper/loglight/issues"
+  },
+  "homepage": "https://github.com/fosper/loglight#readme"
 }
