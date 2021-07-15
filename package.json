@@ -1,13 +1,8 @@
 {
-  "dependencies": {
-    "tgmlight": "^1.0.6",
-    "toolslight": "^1.0.23"
-  },
   "name": "loglight",
   "description": "Quickly and easily NodeJS module for save and report any logs.",
   "version": "1.0.0",
   "main": "index.js",
-  "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -33,5 +28,9 @@
   "bugs": {
     "url": "https://github.com/fosper/loglight/issues"
   },
-  "homepage": "https://github.com/fosper/loglight#readme"
+  "homepage": "https://github.com/fosper/loglight#readme",
+  "dependencies": {
+    "tgmlight": "^1.0.7",
+    "toolslight": "^2.0.0"
+  }
 }

@@ -1,99 +1,353 @@
 const toolslight = require('toolslight')
 const tgmlight = require('tgmlight')
-const fs = require('fs')
+const { Readable } = require('stream')
+const { writeFileSync } = require('fs')
 
-class Handlerlight {
-    constructor(options) {
-        this.serviceInfo = options.serviceInfo
-        this.logDirectory = options.logDirectory
-        this.telegramChannelId = options.telegramChannelId
-        this.telegramBotToken = options.telegramBotToken
-        this.triggerText = options.triggerText
+class Loglight {
+    constructor(customOptions = {}) {
+        let defaultOptions = {
+            reportPhrases: [],
+            reportHeader: '',
+            UTC: 0
+        }
+
+        let getOptions = (defaultOptions, customOptions) => {
+            let options = {}
+            for (const defaultOption in defaultOptions) {
+                if (Object.prototype.toString.call(defaultOptions[defaultOption]) === Object.prototype.toString.call(customOptions[defaultOption])) {
+                    if (Object.prototype.toString.call(defaultOptions[defaultOption]) === '[object Object]') {
+                        options[defaultOption] = getOptions(defaultOptions[defaultOption], customOptions[defaultOption])
+                    } else {
+                        options[defaultOption] = customOptions[defaultOption]
+                    }
+                } else {
+                    if (customOptions[defaultOption] === undefined) {
+                        options[defaultOption] = defaultOptions[defaultOption]
+                    } else {
+                        throw new Error('loglight: class create error. Incorrect data type for option \'' + defaultOption + '\'.')
+                    }
+                }
+            }
+            return options
+        }
+
+        let options = getOptions(defaultOptions, customOptions)
+
+        for (let reportPhrase of options.reportPhrases) {
+            if (typeof reportPhrase !== 'string') {
+                throw new Error('loglight: class create error. Incorrect data type in option \'reportPhrases\' - all elements of this array must be string.')
+            }
+        }
+
+        this.options = options
+        this.sources = []
         this.stackTrace = []
         this.tgm = new tgmlight
     }
 
-    static create = (customOptions = {}) => {
+    setUTC = (UTC) => {
+        if (typeof UTC !== 'number') {
+            throw new Error('loglight: \'setUTC\' function error. Incorrect data type in argument. Must be number, from -12 to 14.')
+        }
+        if (UTC < -12 || UTC > 14) {
+            throw new Error('loglight: \'setUTC\' function error. Incorrect data value in argument. Must be number, from -12 to 14.')
+        }
+        this.options.UTC = UTC
+
+        return this
+    }
+
+    addSource = (source = '',  customOptions = {}) => {
+        let defaultOptions
+        switch (source) {
+            case 'console':
+                defaultOptions = {
+                    name: '',
+                    reportPhrases: [],
+                    reportHeader: ''
+                }
+                break
+            case 'file':
+                defaultOptions = {
+                    name: '',
+                    reportPhrases: [],
+                    reportHeader: '',
+                    directory: ''
+                }
+                break
+            case 'telegram':
+                defaultOptions = {
+                    name: '',
+                    reportPhrases: [],
+                    reportHeader: '',
+                    directory: '',
+                    botToken: '',
+                    channelId: '',
+                    message: ''
+                }
+                break
+            default:
+                throw new Error('loglight: \'addSource\' function error. Incorrect source \'' + source + '\'. Supports sources: \'console\', \'file\', \'telegram\'.')
+        }
+
+        let getOptions = (defaultOptions, customOptions) => {
+            let options = {}
+            for (const defaultOption in defaultOptions) {
+                if (Object.prototype.toString.call(defaultOptions[defaultOption]) === Object.prototype.toString.call(customOptions[defaultOption])) {
+                    if (Object.prototype.toString.call(defaultOptions[defaultOption]) === '[object Object]') {
+                        options[defaultOption] = getOptions(defaultOptions[defaultOption], customOptions[defaultOption])
+                    } else {
+                        options[defaultOption] = customOptions[defaultOption]
+                    }
+                } else {
+                    if (customOptions[defaultOption] === undefined) {
+                        options[defaultOption] = defaultOptions[defaultOption]
+                    } else {
+                        throw new Error('loglight: \'addSource\' function error. Incorrect data type for option \'' + defaultOption + '\'.')
+                    }
+                }
+            }
+            return options
+        }
+
+        let options = getOptions(defaultOptions, customOptions)
+
+        for (let reportPhrase of options.reportPhrases) {
+            if (typeof reportPhrase !== 'string') {
+                throw new Error('loglight: \'addSource\' function error. Incorrect data type in option \'reportPhrases\' - all elements of this array must be string.')
+            }
+        }
+
+        switch (source) {
+            case 'console':
+                this.sources.push({
+                    source: 'console',
+                    name: options.name,
+                    reportPhrases: options.reportPhrases,
+                    reportHeader: options.reportHeader
+                })
+                break
+            case 'file':
+                if (!toolslight.isPathExists(options.directory).data) {
+                    throw new Error('loglight: \'addSource\' function error. Incorrect data type in option \'directory\' - directory \'' + options.directory + '\' not exists. Create directory or use path to existing directory.')
+                }
+                this.sources.push({
+                    source: 'file',
+                    name: options.name,
+                    reportPhrases: options.reportPhrases,
+                    reportHeader: options.reportHeader,
+                    directory: options.directory
+                })
+                break
+            case 'telegram':
+                if (!toolslight.isPathExists(options.directory).data) {
+                    throw new Error('loglight: \'addSource\' function error. Incorrect data type in option \'directory\' - directory \'' + options.directory + '\' not exists. Create directory or use path to existing directory.')
+                }
+                if (!options.botToken) {
+                    throw new Error('loglight: \'addSource\' function error. You didn\'t set option \'botToken\' for send messages to telegram channel.')
+                }
+                if (!options.channelId) {
+                    throw new Error('loglight: \'addSource\' function error. You didn\'t set option \'channelId\' for send messages to telegram channel.')
+                }
+                this.sources.push({
+                    source: 'telegram',
+                    name: options.name,
+                    reportPhrases: options.reportPhrases,
+                    reportHeader: options.reportHeader,
+                    directory: options.directory,
+                    botToken: options.botToken,
+                    channelId: options.channelId,
+                    message: options.message
+                })
+                break
+        }
+
+        return this
+    }
+
+    removeSource = (customOptions = {}) => {
         let defaultOptions = {
-            serviceInfo: {}, // Default: {}. Required: no. Type: Object. Description: additional arbitrary information about service.
-            logDirectory: '', // Default: ''. Required: yes. Type: String. Description: Path to folder, for save log files.
-            telegramChannelId: '', // Default: ''. Required: no. Type: String. Description: Telegram channel id for collect reports.
-            telegramBotToken: '', // Default: ''. Required: no. Type: String. Description: Token of telegram bot, who can send messages to telegram channel.
-            triggerText: 'Critical: true.' // Default: ''. Required: yes. Type: String. Description: If this text will contain in the end of 'log' function argument - stack trace will save to file, send to telegram channel, and reset.
+            name: ''
         }
 
-        let options = {}
-
-        for (const defaultOption in defaultOptions) {
-            if (Object.prototype.toString.call(defaultOptions[defaultOption]) === Object.prototype.toString.call(customOptions[defaultOption])) {
-                options[defaultOption] = customOptions[defaultOption]
-            } else {
-                options[defaultOption] = defaultOptions[defaultOption]
+        let getOptions = (defaultOptions, customOptions) => {
+            let options = {}
+    
+            for (const defaultOption in defaultOptions) {
+                if (defaultOption === 'name' && typeof customOptions === 'string') {
+                    options[defaultOption] = customOptions
+                    continue
+                }
+    
+                if (Object.prototype.toString.call(defaultOptions[defaultOption]) === Object.prototype.toString.call(customOptions[defaultOption])) {
+                    if (Object.prototype.toString.call(defaultOptions[defaultOption]) === '[object Object]') {
+                        options[defaultOption] = getOptions(defaultOptions[defaultOption], customOptions[defaultOption])
+                    } else {
+                        options[defaultOption] = customOptions[defaultOption]
+                    }
+                } else {
+                    if (customOptions[defaultOption] === undefined) {
+                        options[defaultOption] = defaultOptions[defaultOption]
+                    } else {
+                        throw new Error('loglight: \'removeSource\' function error. Incorrect data type for option \'' + defaultOption + '\'.')
+                    }
+                }
             }
+            return options
+        }
+    
+        let options = getOptions(defaultOptions, customOptions)
+
+        if (!options.name) {
+            return this
         }
 
-        if (!options.logDirectory) {
-            throw new Error('handlerlight: incorrect \'create\' function argument. Argument \'logDirectory\' missing or empty. For example: let handler = handlerlight.create({logDirectory: \'/srv/project/log\', triggerText: \'Critical: true.\'})')
+        let sources = []
+        for (let sourceOptions of this.sources) {
+            if (sourceOptions.name === options.name) {
+                continue
+            }
+            sources.push(sourceOptions)
         }
+        this.sources = sources
 
-        if (!options.triggerText) {
-            throw new Error('handlerlight: incorrect \'create\' function argument. Argument \'triggerText\' missing or empty. For example: let handler = handlerlight.create({logDirectory: \'/srv/project/log\', triggerText: \'Critical: true.\'})')
-        }
-
-        if (!fs.existsSync(options.logDirectory)) {
-            throw new Error('handlerlight: incorrect \'create\' function argument. Directory \'' + options.logDirectory + '\' in argument \'logDirectory\' not exists. For example: let handler = handlerlight.create({logDirectory: \'/srv/project/log\', triggerText: \'Critical: true.\'})')
-        }
-
-        return new this(options)
+        return this
     }
 
-    log = async (data = '') => {
+    log = (data = '') => {
         data = data.toString()
-        let ts = toolslight.getTs()
+        let ts = toolslight.getTs({utc: this.options.UTC}).data
 
-        this.stackTrace.push('[' + toolslight.getDate(ts) + ']' + ' ' + data)
-        if (data.substr(data.length - this.triggerText.length, this.triggerText.length) === this.triggerText) {
-            let year = toolslight.getYear(ts)
-            let month = toolslight.getMonth(ts) > 9 ? toolslight.getMonth(ts) : '0' + toolslight.getMonth(ts)
-            let day = toolslight.getDay(ts) > 9 ? toolslight.getDay(ts) : '0' + toolslight.getDay(ts)
-            let hour = toolslight.getHour(ts) > 9 ? toolslight.getHour(ts) : '0' + toolslight.getHour(ts)
-            let minute = toolslight.getMinute(ts) > 9 ? toolslight.getMinute(ts) : '0' + toolslight.getMinute(ts)
-            let second = toolslight.getSecond(ts) > 9 ? toolslight.getSecond(ts) : '0' + toolslight.getSecond(ts)
-            let random = toolslight.uniqid()
-            let logFileName = year + '-' + month + '-' + day + '_' + hour + ':' + minute + ':' + second + '_' + random + '.log'
-            let stackTraceText = this.stackTrace.join('\r\n')
-            fs.writeFileSync(this.logDirectory + '/' + logFileName, stackTraceText)
-            this.stackTrace = null
-            delete this.stackTrace
-            this.stackTrace = []
+        this.stackTrace.push('[' + toolslight.getDate(ts).data + ']' + ' ' + data)
 
-            if (this.telegramChannelId && this.telegramBotToken) {
-                let text = ''
-                for (const serviceInfoName in this.serviceInfo) {
-                    text += serviceInfoName + ': ' + this.serviceInfo[serviceInfoName] + '\n'
-                }
-
-                let result = await this.tgm
-                .setBotToken(this.telegramBotToken)
-                .setChatId(this.telegramChannelId)
-                .setText(text)
-                .setDocument(fs.createReadStream(this.logDirectory + '/' + logFileName))
-                .setDisableNotification()
-                .sendDocument()
-
-                result = toolslight.jsonToObject(result.response.body)
-                if (result.ok) {
-                    fs.unlinkSync(this.logDirectory + '/' + logFileName)
+        let sources = []
+        for (let sourceOptions of this.sources) {
+            let reportPhrases = toolslight.arraysMerge({arrays: [this.options.reportPhrases, sourceOptions.reportPhrases]})
+            if (reportPhrases.error) {
+                throw new Error('loglight: \'log\' function error. Internal error, please write to developer.')
+            }
+            reportPhrases = reportPhrases.data
+            for (let reportPhrase of reportPhrases) {
+                if (data.includes(reportPhrase)) {
+                    sources.push(sourceOptions)
                 }
             }
         }
+
+        if (sources.length) {
+            this.report(sources)
+        }
+
+        return this
     }
 
-    reset = () => {
+    report = (sources = []) => {
+        let stackTrace = Array.from(this.stackTrace)
+
+        if (Object.prototype.toString.call(stackTrace) !== '[object Array]') {
+            return this.report()
+        }
+
+        if (!stackTrace.length) {
+            return this
+        }
+
+        this.clear()
+
+        if (!sources.length) {
+            sources = this.sources
+        }
+
+        for (let sourceOptions of sources) {
+            let reportHeader = ''
+            if (this.options.reportHeader) {
+                reportHeader = this.options.reportHeader
+            }
+
+            if (sourceOptions.reportHeader) {
+                if (reportHeader) {
+                    reportHeader += '\r\n'
+                }
+                reportHeader += sourceOptions.reportHeader
+            }
+
+            if (reportHeader) {
+                reportHeader += '\r\n\r\n'
+            }
+
+            switch (sourceOptions.source) {
+                case 'console':
+                    console.log(reportHeader + stackTrace.join('\r\n') + '\r\n')
+                    break
+                case 'file':
+                    writeFileSync(sourceOptions.directory + '/' + this.generateLogFileName(), reportHeader + stackTrace.join('\r\n') + '\r\n')
+                    break
+                case 'telegram':
+                    let document = Readable.from(Buffer.from(reportHeader + stackTrace.join('\r\n') + '\r\n'))
+                    document.path = this.generateLogFileName(true)
+        
+                    this.tgm
+                    .setBotToken(sourceOptions.botToken)
+                    .setChatId(sourceOptions.channelId)
+                    .setText(sourceOptions.message)
+                    .setDocument(document)
+                    .sendDocument().then((result) => {
+                        result = toolslight.jsonToObject(result.data)
+                        if (!result.ok && sourceOptions.directory) {
+                            writeFileSync(sourceOptions.directory + '/' + this.generateLogFileName(), reportHeader + stackTrace.join('\r\n') + '\r\n')
+                        }
+                    })
+                    break
+            }
+        }
+        
+        return this
+    }
+
+    clear = () => {
         this.stackTrace = null
         delete this.stackTrace
         this.stackTrace = []
+
+        return this
+    }
+
+    tgMsg = (data = '', onlyForFirst = false) => {
+        for (let sourceOptions of this.sources) {
+            switch (sourceOptions.source) {
+                case 'telegram':
+                    this.tgm
+                    .setBotToken(sourceOptions.botToken)
+                    .setChatId(sourceOptions.channelId)
+                    .setText(data)
+                    .sendMessage()
+
+                    if (onlyForFirst) {
+                        return this
+                    }
+                    break
+            }
+        }
+
+        return this
+    }
+
+    generateLogFileName = function(isShort = false) {
+        let ts = toolslight.getTs({utc: this.options.UTC}).data
+        let year = toolslight.getYear(ts).data
+        let month = toolslight.getMonth(ts).data > 9 ? toolslight.getMonth(ts).data : '0' + toolslight.getMonth(ts).data
+        let day = toolslight.getDayOfMonth(ts).data > 9 ? toolslight.getDayOfMonth(ts).data : '0' + toolslight.getDayOfMonth(ts).data
+        let hour = toolslight.getHour(ts).data > 9 ? toolslight.getHour(ts).data : '0' + toolslight.getHour(ts).data
+        let minute = toolslight.getMinute(ts).data > 9 ? toolslight.getMinute(ts).data : '0' + toolslight.getMinute(ts).data
+        let second = toolslight.getSecond(ts).data > 9 ? toolslight.getSecond(ts).data : '0' + toolslight.getSecond(ts).data
+        let random = toolslight.uniqid().data
+
+        if (isShort) {
+            return year + '_' + month + '_' + day + '_' + hour + '-' + minute + '-' + second + '.log'
+        }
+        
+        return year + '_' + month + '_' + day + '_' + hour + '-' + minute + '-' + second + '-' + random + '.log'
     }
 }
 
-module.exports = Handlerlight
+module.exports = Loglight

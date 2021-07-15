@@ -1,4 +1,4 @@
-const tl = require('toolslight')
+const toolslight = require('toolslight')
 const stream = require('stream')
 const fs = require('fs')
 
@@ -121,7 +121,7 @@ class Tgmlight {
         }
 
         let replyMarkup = this.getReplyMarkup()
-        if (tl.isEmpty(replyMarkup[keyboardType])) {
+        if (!replyMarkup[keyboardType].length) {
             replyMarkup[keyboardType] = []
         }
         replyMarkup[keyboardType].push(keyboardRow)
@@ -307,7 +307,7 @@ class Tgmlight {
     }
 
     setResizeKeyboard = (value = true) => {
-        if (tl.isEmpty(this.requestOptions.reply_markup)) {
+        if (!this.requestOptions.reply_markup) {
             this.requestOptions.reply_markup = {}
         }
         this.requestOptions.reply_markup.resize_keyboard = value
@@ -319,7 +319,7 @@ class Tgmlight {
     }
 
     setOneTimeKeyboard = (value = true) => {
-        if (tl.isEmpty(this.requestOptions.reply_markup)) {
+        if (!this.requestOptions.reply_markup) {
             this.requestOptions.reply_markup = {}
         }
         this.requestOptions.reply_markup.one_time_keyboard = value
@@ -331,7 +331,7 @@ class Tgmlight {
     }
 
     setSelective = (value = true) => {
-        if (tl.isEmpty(this.requestOptions.reply_markup)) {
+        if (!this.requestOptions.reply_markup) {
             this.requestOptions.reply_markup = {}
         }
         this.requestOptions.reply_markup.selective = value
@@ -357,7 +357,7 @@ class Tgmlight {
     }
 
     getReplyMarkup = () => {
-        if (tl.isEmpty(this.requestOptions.reply_markup)) {
+        if (!this.requestOptions.reply_markup) {
             this.requestOptions.reply_markup = {}
         }
         return this.requestOptions.reply_markup
@@ -375,87 +375,87 @@ class Tgmlight {
         Private functions (not for use).
     */
 
-    request = async (parameters) => {
-        let requestOptions = {
-            method: 'POST',
-            protocol: 'https',
-            host: 'api.telegram.org',
-            port: 443,
-            path: '/bot' + this.botToken + '/' + this.messageType,
-            headers: {}
-        }
-
-        let body = {}
-        let isFormData = false
-
-        for (const parameter of parameters) {
-            let func = parameter.replace(/([-_][a-z])/ig, ($1) => {
-                return $1.toUpperCase()
-                  .replace('-', '')
-                  .replace('_', '')
-            })
-            func = 'get' + func.charAt(0).toUpperCase() + func.slice(1)
-            if (!tl.isEmpty(this[func])) {
-                let funcRes
-                switch (func) {
-                    case 'getDocument':
-                        funcRes = this[func]()
-                        if (funcRes instanceof stream.Readable) {
-                            isFormData = true
-                        }
-                        break
-                    case 'getReplyMarkup':
-                        funcRes = this[func]()
-                        if (!tl.isEmpty(funcRes)) {
-                            funcRes = JSON.stringify(funcRes)
-                        } else {
-                            continue
-                        }
-                        break
-                    case 'getCaption':
-                        funcRes = this[func]()
-                        if (!funcRes) {
-                            funcRes = this.getText()
-                            if (!funcRes) {
+    request = (parameters) => {
+        return new Promise((resolve) => {
+            let result = {
+                data: null,
+                error: null, // Codes: 
+                stackTrace: []
+            }
+    
+            let requestOptions = {
+                method: 'POST',
+                protocol: 'https',
+                host: 'api.telegram.org',
+                port: 443,
+                path: '/bot' + this.botToken + '/' + this.messageType,
+                headers: {}
+            }
+    
+            let body = {}
+            let isFormData = false
+    
+            for (const parameter of parameters) {
+                let func = parameter.replace(/([-_][a-z])/ig, ($1) => {
+                    return $1.toUpperCase()
+                      .replace('-', '')
+                      .replace('_', '')
+                })
+                func = 'get' + func.charAt(0).toUpperCase() + func.slice(1)
+                if (this[func]) {
+                    let funcRes
+                    switch (func) {
+                        case 'getDocument':
+                            funcRes = this[func]()
+                            if (funcRes instanceof stream.Readable) {
+                                isFormData = true
+                            }
+                            break
+                        case 'getReplyMarkup':
+                            funcRes = this[func]()
+                            if (Object.keys(funcRes).length) {
+                                funcRes = JSON.stringify(funcRes)
+                            } else {
                                 continue
                             }
-                        }
-                        break
-                    default:
-                        funcRes = funcRes = this[func]()
-                        break
-                }
-                if (funcRes !== undefined) {
-                    body[parameter] = funcRes
-                }
-            }
-        }
-
-        if (!isFormData) {
-            requestOptions.headers['Content-Type'] = this.contentType
-        }
-
-        if (isFormData) {
-            requestOptions.formData = {}
-            for (const bodyName in body) {
-                let bodyValue = body[bodyName]
-
-                if (typeof(bodyValue) === 'string' && bodyValue.includes('/')) {
-                    requestOptions.formData[bodyName] = fs.createReadStream(bodyValue)
-                } else {
-                    requestOptions.formData[bodyName] = bodyValue
+                            break
+                        case 'getCaption':
+                            funcRes = this[func]()
+                            if (!funcRes) {
+                                funcRes = this.getText()
+                                if (!funcRes) {
+                                    continue
+                                }
+                            }
+                            break
+                        default:
+                            funcRes = funcRes = this[func]()
+                            break
+                    }
+                    if (funcRes !== undefined) {
+                        body[parameter] = funcRes
+                    }
                 }
             }
-        } else {
-            requestOptions.body = JSON.stringify(body)
-        }
+    
+            if (isFormData) {
+                requestOptions.bodyFormData = {}
+                for (const bodyName in body) {
+                    let bodyValue = body[bodyName]
+    
+                    if (typeof(bodyValue) === 'string' && bodyValue.includes('/')) {
+                        requestOptions.bodyFormData[bodyName] = fs.createReadStream(bodyValue)
+                    } else {
+                        requestOptions.bodyFormData[bodyName] = bodyValue
+                    }
+                }
+            } else {
+                requestOptions.headers['Content-Type'] = this.contentType
+                requestOptions.body = JSON.stringify(body)
+            }
 
-        let err, data
-        [err, data] = await tl.request(requestOptions)
-        if (err) {
-            return err
-        }
-        return data
+            resolve(toolslight.httpRequest(requestOptions))
+        })
     }
 }
 
