@@ -214,28 +214,41 @@ class Loglight {
         return this
     }
 
-    log = (data = '') => {
-        data = data.toString()
-        let ts = toolslight.getTs({utc: this.options.UTC}).data
+    log = (logData = '') => {
 
-        this.stackTrace.push('[' + toolslight.getDate(ts).data + ']' + ' ' + data)
-
-        let sources = []
-        for (let sourceOptions of this.sources) {
-            let reportPhrases = toolslight.arraysMerge({arrays: [this.options.reportPhrases, sourceOptions.reportPhrases]})
-            if (reportPhrases.error) {
-                throw new Error('loglight: \'log\' function error. Internal error, please write to developer.')
-            }
-            reportPhrases = reportPhrases.data
-            for (let reportPhrase of reportPhrases) {
-                if (data.includes(reportPhrase)) {
-                    sources.push(sourceOptions)
-                }
-            }
+        let dataList = []
+        if (Object.prototype.toString.call(logData) === '[object String]') {
+            dataList.push(logData)
+        } else {
+            dataList = logData
         }
 
-        if (sources.length) {
-            this.report(sources)
+        for (let data of dataList) {
+            if (!data) {
+                continue
+            }
+            data = data.toString()
+            let ts = toolslight.getTs({utc: this.options.UTC}).data
+    
+            this.stackTrace.push('[' + toolslight.getDate(ts).data + ']' + ' ' + data)
+    
+            let sources = []
+            for (let sourceOptions of this.sources) {
+                let reportPhrases = toolslight.arraysMerge({arrays: [this.options.reportPhrases, sourceOptions.reportPhrases]})
+                if (reportPhrases.error) {
+                    throw new Error('loglight: \'log\' function error. Internal error, please write to developer.')
+                }
+                reportPhrases = reportPhrases.data
+                for (let reportPhrase of reportPhrases) {
+                    if (data.includes(reportPhrase)) {
+                        sources.push(sourceOptions)
+                    }
+                }
+            }
+    
+            if (sources.length) {
+                this.report(sources)
+            }
         }
 
         return this
@@ -256,6 +269,25 @@ class Loglight {
 
         if (!sources.length) {
             sources = this.sources
+        } else {
+            let customSources = []
+            if (Object.prototype.toString.call(sources) === '[object String]') {
+                let tmp = sources
+                sources = [tmp]
+            }
+            for (let source of sources) {
+                if (Object.prototype.toString.call(source) === '[object Object]') {
+                    customSources.push(source)
+                } else {
+                    for (let sourceOptions of this.sources) {
+                        if (sourceOptions.name === source) {
+                            customSources.push(sourceOptions)
+                            break
+                        }
+                    }
+                }
+            }
+            sources = customSources
         }
 
         for (let sourceOptions of sources) {
@@ -290,6 +322,7 @@ class Loglight {
                     .setBotToken(sourceOptions.botToken)
                     .setChatId(sourceOptions.channelId)
                     .setText(sourceOptions.message)
+                    .setParseMode('HTML')
                     .setDocument(document)
                     .sendDocument().then((result) => {
                         result = toolslight.jsonToObject(result.data)
@@ -312,7 +345,7 @@ class Loglight {
         return this
     }
 
-    tgMsg = (data = '', onlyForFirst = false) => {
+    tgMsg = (data = '', onlyForFirst = true) => {
         for (let sourceOptions of this.sources) {
             switch (sourceOptions.source) {
                 case 'telegram':
@@ -320,8 +353,8 @@ class Loglight {
                     .setBotToken(sourceOptions.botToken)
                     .setChatId(sourceOptions.channelId)
                     .setText(data)
+                    .setParseMode('HTML')
                     .sendMessage()
-
                     if (onlyForFirst) {
                         return this
                     }
