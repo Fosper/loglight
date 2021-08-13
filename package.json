@@ -1,7 +1,7 @@
 {
   "name": "loglight",
   "description": "Quickly and easily NodeJS module for save and report any logs.",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
