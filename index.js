@@ -325,7 +325,7 @@ class Loglight {
                     .setParseMode('HTML')
                     .setDocument(document)
                     .sendDocument().then((result) => {
-                        result = toolslight.jsonToObject(result.data)
+                        result = toolslight.jsonToObject(result.data).data
                         if (!result.ok && sourceOptions.directory) {
                             writeFileSync(sourceOptions.directory + '/' + this.generateLogFileName(), reportHeader + stackTrace.join('\r\n') + '\r\n')
                         }
