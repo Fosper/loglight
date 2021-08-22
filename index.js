@@ -325,14 +325,15 @@ class Loglight {
                     .setParseMode('HTML')
                     .setDocument(document)
                     .sendDocument().then((result) => {
-                        result = toolslight.jsonToObject(result.data)
-                        let isOk = true
+                        let isOk = false
                         if (result.data) {
-                            if (!result.data.ok) {
-                                isOk = false
+                            result = toolslight.jsonToObject(Buffer.from(result.data.response.body, 'binary').toString())
+                            if (result.data) {
+                                result = result.data
+                                if (result.ok) {
+                                    isOk = true
+                                }
                             }
-                        } else {
-                            isOk = false
                         }
 
                         if (!isOk && sourceOptions.directory) {
