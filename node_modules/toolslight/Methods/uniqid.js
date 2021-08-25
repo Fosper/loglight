@@ -70,8 +70,17 @@ toolslight.uniqid = function(customOptions = {}) {
         position: 1
     }
 
+    me = (customOptions.initiator && Object.prototype.toString.call(customOptions.initiator) === '[object String]') ? customOptions.initiator + '->' + me : me
+
     let options = this.getOptions(me, customOptions, defaultOptions, defaultOptionsAvailableTypes, defaultOptionsAvailableValues, defaultValue, result.stackTrace)
 
+    if (customOptions.initiator && Object.prototype.toString.call(customOptions.initiator) !== '[object String]') {
+        result.error = {
+            code: 'INCORRECT_OPTIONS',
+            message: me + 'Error: custom option \'initiator\' can\'t be type of ' + Object.prototype.toString.call(customOptions.initiator) + '\'. Available types for this variable: \'[object String]\'.'
+        }
+        return result
+    }
     if (!options) {
         result.error = {
             code: 'INCORRECT_OPTIONS',
@@ -89,14 +98,14 @@ toolslight.uniqid = function(customOptions = {}) {
     if (options.lettersEnable) {
         for (let character of options.lettersLib) {
             if (Object.prototype.toString.call(character) !== '[object String]') {
-                result.stackTrace.push((options.initiator ? options.initiator + ': ' : '') + me + ': ' + 'Error: Incorrect option \'lettersLib\' value. Array must contain only string elements with 1 character.')
+                result.stackTrace.push(me + ': ' + 'Error: Incorrect option \'lettersLib\' value. Array must contain only string elements with 1 character.')
                 result.error = {
                     code: 'INCORRECT_OPTION_VALUE',
                     message: result.stackTrace[result.stackTrace.length - 1]
                 }
                 return result
             } else if (character.length !== 1) {
-                result.stackTrace.push((options.initiator ? options.initiator + ': ' : '') + me + ': ' + 'Error: Incorrect option \'lettersLib\' value. Array element length need to be 1.')
+                result.stackTrace.push(me + ': ' + 'Error: Incorrect option \'lettersLib\' value. Array element length need to be 1.')
                 result.error = {
                     code: 'INCORRECT_OPTION_VALUE',
                     message: result.stackTrace[result.stackTrace.length - 1]
@@ -109,14 +118,14 @@ toolslight.uniqid = function(customOptions = {}) {
     if (options.numbersEnable) {
         for (let character of options.numbersLib) {
             if (Object.prototype.toString.call(character) !== '[object String]') {
-                result.stackTrace.push((options.initiator ? options.initiator + ': ' : '') + me + ': ' + 'Error: Incorrect option \'numbersLib\' value. Array must contain only string elements with 1 character.')
+                result.stackTrace.push(me + ': ' + 'Error: Incorrect option \'numbersLib\' value. Array must contain only string elements with 1 character.')
                 result.error = {
                     code: 'INCORRECT_OPTION_VALUE',
                     message: result.stackTrace[result.stackTrace.length - 1]
                 }
                 return result
             } else if (character.length !== 1) {
-                result.stackTrace.push((options.initiator ? options.initiator + ': ' : '') + me + ': ' + 'Error: Incorrect option \'lettersLib\' value. Array element length need to be 1.')
+                result.stackTrace.push(me + ': ' + 'Error: Incorrect option \'lettersLib\' value. Array element length need to be 1.')
                 result.error = {
                     code: 'INCORRECT_OPTION_VALUE',
                     message: result.stackTrace[result.stackTrace.length - 1]
@@ -129,14 +138,14 @@ toolslight.uniqid = function(customOptions = {}) {
     if (options.specialEnable) {
         for (let character of options.specialLib) {
             if (Object.prototype.toString.call(character) !== '[object String]') {
-                result.stackTrace.push((options.initiator ? options.initiator + ': ' : '') + me + ': ' + 'Error: Incorrect option \'specialLib\' value. Array must contain only string elements with 1 character.')
+                result.stackTrace.push(me + ': ' + 'Error: Incorrect option \'specialLib\' value. Array must contain only string elements with 1 character.')
                 result.error = {
                     code: 'INCORRECT_OPTION_VALUE',
                     message: result.stackTrace[result.stackTrace.length - 1]
                 }
                 return result
             } else if (character.length !== 1) {
-                result.stackTrace.push((options.initiator ? options.initiator + ': ' : '') + me + ': ' + 'Error: Incorrect option \'lettersLib\' value. Array element length need to be 1.')
+                result.stackTrace.push(me + ': ' + 'Error: Incorrect option \'lettersLib\' value. Array element length need to be 1.')
                 result.error = {
                     code: 'INCORRECT_OPTION_VALUE',
                     message: result.stackTrace[result.stackTrace.length - 1]
@@ -149,14 +158,14 @@ toolslight.uniqid = function(customOptions = {}) {
     if (options.customEnable) {
         for (let character of options.customLib) {
             if (Object.prototype.toString.call(character) !== '[object String]') {
-                result.stackTrace.push((options.initiator ? options.initiator + ': ' : '') + me + ': ' + 'Error: Incorrect option \'customLib\' value. Array must contain only string elements with 1 character.')
+                result.stackTrace.push(me + ': ' + 'Error: Incorrect option \'customLib\' value. Array must contain only string elements with 1 character.')
                 result.error = {
                     code: 'INCORRECT_OPTION_VALUE',
                     message: result.stackTrace[result.stackTrace.length - 1]
                 }
                 return result
             } else if (character.length !== 1) {
-                result.stackTrace.push((options.initiator ? options.initiator + ': ' : '') + me + ': ' + 'Error: Incorrect option \'lettersLib\' value. Array element length need to be 1.')
+                result.stackTrace.push(me + ': ' + 'Error: Incorrect option \'lettersLib\' value. Array element length need to be 1.')
                 result.error = {
                     code: 'INCORRECT_OPTION_VALUE',
                     message: result.stackTrace[result.stackTrace.length - 1]
@@ -168,7 +177,7 @@ toolslight.uniqid = function(customOptions = {}) {
     }
 
     if (!lib.length) {
-        result.stackTrace.push((options.initiator ? options.initiator + ': ' : '') + me + ': ' + 'Error: Arrays in options \'lettersLib\' and \'numbersLib\' and \'specialLib\' and \'customLib\' in empty. One of this array must contain 1 or more string elements.')
+        result.stackTrace.push(me + ': ' + 'Error: Arrays in options \'lettersLib\' and \'numbersLib\' and \'specialLib\' and \'customLib\' in empty. One of this array must contain 1 or more string elements.')
         result.error = {
             code: 'INCORRECT_OPTION_VALUE',
             message: result.stackTrace[result.stackTrace.length - 1]
