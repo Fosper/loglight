@@ -140,9 +140,6 @@ class Loglight {
                 })
                 break
             case 'telegram':
-                if (!toolslight.isPathExists(options.directory).data) {
-                    throw new Error('loglight: \'addSource\' function error. Incorrect data type in option \'directory\' - directory \'' + options.directory + '\' not exists. Create directory or use path to existing directory.')
-                }
                 if (!options.botToken) {
                     throw new Error('loglight: \'addSource\' function error. You didn\'t set option \'botToken\' for send messages to telegram channel.')
                 }
@@ -215,7 +212,6 @@ class Loglight {
     }
 
     log = (logData = '') => {
-
         let dataList = []
         if (Object.prototype.toString.call(logData) === '[object String]') {
             dataList.push(logData)
